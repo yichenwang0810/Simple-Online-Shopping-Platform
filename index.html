@@ -1,0 +1,92 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Shop</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .product { border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 5px; }
+        .product h2 { margin-top: 0; }
+        button { background-color: #007bff; color: white; border: none; padding: 10px 15px; cursor: pointer; border-radius: 3px; }
+        button:hover { background-color: #0056b3; }
+        #order-section { margin-top: 30px; padding-top: 20px; border-top: 2px solid #eee; }
+        input { padding: 8px; margin: 5px 0; width: 100%; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+    <h1>Welcome to the Simple Shop!</h1>
+    <div id="products-container">Loading products...</div>
+
+    <div id="order-section">
+        <h2>Place an Order</h2>
+        <input type="text" id="customer-name" placeholder="Your Name">
+        <input type="text" id="product-ids" placeholder="Product IDs (e.g., 1, 2)">
+        <input type="text" id="quantities" placeholder="Quantities (e.g., 1, 2)">
+        <button onclick="submitOrder()">Submit Order</button>
+        <p id="order-result"></p>
+    </div>
+
+    <script>
+        const API_URL = 'http://127.0.0.1:8000/api';
+
+        // Fetch and display products on page load
+        async function loadProducts() {
+            try {
+                const response = await fetch(`${API_URL}/products`);
+                const products = await response.json();
+                const container = document.getElementById('products-container');
+                container.innerHTML = products.map(p => `
+                    <div class="product">
+                        <h2>${p.name}</h2>
+                        <p>${p.description}</p>
+                        <p><strong>Price: $${p.price.toFixed(2)}</strong></p>
+                        <p><small>Product ID: ${p.id}</small></p>
+                    </div>
+                `).join('');
+            } catch (error) {
+                document.getElementById('products-container').innerText = 'Failed to load products.';
+                console.error(error);
+            }
+        }
+
+        // Submit an order to the backend
+        async function submitOrder() {
+            const customerName = document.getElementById('customer-name').value;
+            const ids = document.getElementById('product-ids').value.split(',').map(id => parseInt(id.trim()));
+            const quantities = document.getElementById('quantities').value.split(',').map(q => parseInt(q.trim()));
+            const resultParagraph = document.getElementById('order-result');
+
+            if (!customerName || ids.some(isNaN) || quantities.some(isNaN) || ids.length !== quantities.length) {
+                resultParagraph.innerText = "Please fill all fields correctly.";
+                return;
+            }
+
+            const items = ids.map((id, index) => ({ product_id: id, quantity: quantities[index] }));
+            const orderData = { customer_name: customerName, items: items };
+
+            try {
+                const response = await fetch(`${API_URL}/orders`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(orderData)
+                });
+                
+                const result = await response.json();
+                if (response.ok) {
+                    resultParagraph.innerHTML = `<strong>Success!</strong> Total Price: $${result.total_price.toFixed(2)}`;
+                } else {
+                    resultParagraph.innerText = `Error: ${result.detail}`;
+                }
+            } catch (error) {
+                resultParagraph.innerText = "Failed to submit order.";
+                console.error(error);
+            }
+        }
+
+        // Load products when the page opens
+        loadProducts();
+    </script>
+</body>
+</html>
